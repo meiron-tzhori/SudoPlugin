@@ -1,10 +1,14 @@
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -Wextra -Wpedantic -Wno-unused-parameter -fPIC
+LDFLAGS = -shared
+
 all: my_plugin.so
 
-%.o: %.cpp
-	g++ -c -fPIC $< -o $@
+%.o: %.cpp *.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 my_plugin.so: plugin.o children.o
-	g++ plugin.o children.o -shared -o my_plugin.so
+	$(CXX) $(LDFLAGS) plugin.o children.o -o my_plugin.so
 
 clean:
 	rm -f *.so *.o

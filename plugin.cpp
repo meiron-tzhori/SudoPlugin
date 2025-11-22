@@ -1,20 +1,25 @@
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sudo_plugin.h>
+#include <fstream>
+#include <string>
 #include <vector>
+#include <sudo_plugin.h>
+#include "plugin.h"
 
 static sudo_conv_t sudo_conv;
 static sudo_printf_t sudo_log;
 static FILE *info, *input, *output;
 static unsigned int parentPid;
+static bool logged_children = false;
 
-#define PACKAGE_VERSION "1.2.3"
-#define PATH_MAX        1024
-#define ignore_result
+namespace {
+	constexpr const char* PACKAGE_VERSION = "1.2.3";
+	constexpr size_t PATH_MAX_SIZE = 1024;
+}
 
-extern std::vector<int> findChildProcesses(int parentPid);
+extern std::vector<struct PidInfo> findChildProcesses(int parentPid);
 
 static int
 io_open(unsigned int version, sudo_conv_t conversation,
@@ -24,39 +29,47 @@ io_open(unsigned int version, sudo_conv_t conversation,
 	const char **errstr)
 {
 	int fd;
-	char path[PATH_MAX];
+	char path[PATH_MAX_SIZE];
 
 	if (!sudo_conv)
-	sudo_conv = conversation;
+		sudo_conv = conversation;
 	if (!sudo_log)
-	sudo_log = sudo_plugin_printf;
+		sudo_log = sudo_plugin_printf;
 
-	parentPid = (unsigned int)getpid();
+	parentPid = static_cast<unsigned int>(getpid());
 	
 	/* Open info file. */
-	snprintf(path, sizeof(path), "/var/tmp/my-%u.info", parentPid);
+	std::snprintf(path, sizeof(path), "/var/tmp/my-%u.info", parentPid);
 	fd = open(path, O_WRONLY|O_CREAT|O_EXCL, 0644);
 	if (fd == -1)
-	return false;
+		return false;
 	info = fdopen(fd, "w");
-	ignore_result(fprintf(info, "Process ID: %u\n", parentPid));
-	ignore_result(getcwd(path, sizeof(path)));
-	ignore_result(fprintf(info, "Absolute path: %s\n", path));
-	ignore_result(fprintf(info, "Process owner: %u\n", (unsigned int)getuid()));
+	if (!info)
+		return false;
+	
+	std::fprintf(info, "Process ID: %u\n", parentPid);
+	if (getcwd(path, sizeof(path)) != nullptr) {
+		std::fprintf(info, "Absolute path: %s\n", path);
+	}
+	std::fprintf(info, "Process owner: %u\n", static_cast<unsigned int>(getuid()));
 
 	/* Open input and output files. */
-	snprintf(path, sizeof(path), "/var/tmp/my-%u.output", parentPid);
+	std::snprintf(path, sizeof(path), "/var/tmp/my-%u.output", parentPid);
 	fd = open(path, O_WRONLY|O_CREAT|O_EXCL, 0644);
 	if (fd == -1)
-	return false;
+		return false;
 	output = fdopen(fd, "w");
+	if (!output)
+		return false;
 
-	snprintf(path, sizeof(path), "/var/tmp/my-%u.input",
-	(unsigned int)getpid());
+	std::snprintf(path, sizeof(path), "/var/tmp/my-%u.input",
+		static_cast<unsigned int>(getpid()));
 	fd = open(path, O_WRONLY|O_CREAT|O_EXCL, 0644);
 	if (fd == -1)
-	return false;
+		return false;
 	input = fdopen(fd, "w");
+	if (!input)
+		return false;
 
 	return true;
 }
@@ -80,36 +93,29 @@ io_version(int verbose)
 static int
 io_log_input(const char *buf, unsigned int len, const char **errstr)
 {
-	ignore_result(fwrite(buf, len, 1, input));
+	if (input) {
+		std::fwrite(buf, len, 1, input);
+	}
 	return true;
 }
 
 static int
 io_log_output(const char *buf, unsigned int len, const char **errstr)
 {
-	ignore_result(fprintf(info, "Child processes:\n"));
-	auto children = findChildProcesses(parentPid);
-	for (int pid : children) {
-	    ignore_result(fprintf(info, "  %d:\n", pid));
+	if (info && !logged_children) {
+		logged_children = true;
+		std::fprintf(info, "Child processes:\n");
+		auto children = findChildProcesses(parentPid);
+		for (const auto& child : children) {
+			std::fprintf(info, "  %d %s\n", child.pid, child.name.c_str());
+		}
 	}
 
-
-	const char *cp, *ep;
-	bool ret = true;
-
-	ignore_result(fwrite(buf, len, 1, output));
-	/*
-	 * If we find the string "honk!" in the buffer, reject it.
-	 * In practice we'd want to be able to detect the word
-	 * broken across two buffers.
-	 */
-	for (cp = buf, ep = buf + len; cp < ep; cp++) {
-	if (cp + 5 < ep && memcmp(cp, "honk!", 5) == 0) {
-	    ret = false;
-	    break;
+	if (output) {
+		std::fwrite(buf, len, 1, output);
 	}
-	}
-	return ret;
+	
+	return true;
 }
 
 struct io_plugin my_io = {
