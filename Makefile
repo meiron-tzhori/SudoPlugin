@@ -1,10 +1,11 @@
 all: my_plugin.so
 
-plugin.o: plugin.cpp
-	gcc -c -fPIC plugin.cpp -o plugin.o
+%.o: %.cpp
+	g++ -c -fPIC $< -o $@
 
-my_plugin.so: plugin.o
-	gcc plugin.o -shared -o my_plugin.so
+my_plugin.so: plugin.o children.o
+	g++ plugin.o children.o -shared -o my_plugin.so
 
 clean:
-	rm *.so *.o
+	rm -f *.so *.o
+
