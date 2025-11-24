@@ -107,7 +107,7 @@ io_open([[maybe_unused]] unsigned int version, sudo_conv_t conversation,
 	}
 
 	// Open input file
-	const std::string input_path = make_path("my", static_cast<unsigned int>(getpid()), INPUT_SUFFIX);
+	const std::string input_path = make_path("my", parentPid, INPUT_SUFFIX);
 	input = open_file(input_path);
 	if (!input.has_value() || !input->is_open()) {
 		return false;
