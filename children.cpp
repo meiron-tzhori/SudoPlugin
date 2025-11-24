@@ -1,28 +1,31 @@
-#include <iostream>
 #include <fstream>
+#include <filesystem>
 #include <string>
 #include <vector>
-#include <dirent.h>
-#include <cstdlib>
 #include <algorithm>  // for std::all_of
 #include <sstream>	// for std::istringstream
+#include <cctype>
 #include "plugin.h"
+
+namespace fs = std::filesystem;
 
 std::vector<PidInfo> findChildProcesses(int parentPid) {
 	std::vector<PidInfo> children;
-	DIR* proc = opendir("/proc");
-	if (!proc) {
+	const fs::path procPath{"/proc"};
+	if (!fs::exists(procPath) || !fs::is_directory(procPath)) {
 		return children;
 	}
 
-	struct dirent* entry;
-	while ((entry = readdir(proc)) != nullptr) {
-		if (entry->d_type != DT_DIR) {
+	for (const auto& entry : fs::directory_iterator(procPath)) {
+		if (!entry.is_directory()) {
 			continue;
 		}
 
-		std::string pidStr = entry->d_name;
-		if (!std::all_of(pidStr.begin(), pidStr.end(), [](char c) { return std::isdigit(static_cast<unsigned char>(c)); })) {
+		const std::string pidStr = entry.path().filename().string();
+		const bool isNumeric = std::all_of(pidStr.begin(), pidStr.end(), [](unsigned char c) {
+			return std::isdigit(c) != 0;
+		});
+		if (!isNumeric) {
 			continue;
 		}
 
@@ -33,7 +36,7 @@ std::vector<PidInfo> findChildProcesses(int parentPid) {
 			continue;
 		}
 
-		std::string statPath = "/proc/" + pidStr + "/stat";
+		const fs::path statPath = entry.path() / "stat";
 		std::ifstream statFile(statPath);
 		if (!statFile) {
 			continue;
@@ -64,7 +67,6 @@ std::vector<PidInfo> findChildProcesses(int parentPid) {
 		}
 	}
 
-	closedir(proc);
 	return children;
 }
 
