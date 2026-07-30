@@ -7,6 +7,11 @@
 #include <string_view>
 #include <vector>
 #include <optional>
+
+#if defined(__cplusplus) && !defined(restrict)
+#define restrict __restrict__
+#endif
+
 #include <sudo_plugin.h>
 #include "plugin.h"
 
