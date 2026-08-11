@@ -22,6 +22,11 @@ Nov 21 00:46:01 LAPTOP-SQH1HTRE sudo:   meiron : TTY=pts/4 ; PWD=/home/meiron ; 
 Nov 21 00:46:01 LAPTOP-SQH1HTRE sudo: pam_unix(sudo:session): session opened for user root(uid=0) by (uid=1000)
 Nov 21 00:46:01 LAPTOP-SQH1HTRE sudo: pam_unix(sudo:session): session closed for user root
 
+Example without sudo plugin:
+sudo: pam_unix(sudo:session): session opened for user root(uid=0) by meiron(uid=1000)
+sudo: meiron : TTY=/dev/pts/0 ; PWD=/home/meiron/code/CPP/SudoPlugin ; USER=root ; COMMAND=/usr/bin/tail -f /var/log/auth.log
+
+
 The log line in /var/log/auth.log is based on struct eventlog:
 https://github.com/sudo-project/sudo/blob/main/include/sudo_eventlog.h#L99
 
